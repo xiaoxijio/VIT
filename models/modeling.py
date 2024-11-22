@@ -60,7 +60,7 @@ class Attention(nn.Module):
         # eg: 768 -> 12*64 将数据转换为适合多头注意力操作的形状，以便能够并行处理多个注意力头
         new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
         x = x.view(*new_x_shape)  # 将最后一维(hidden_dim)改为(num_attention_heads, attention_head_size)
-        return x.permute(0, 2, 1, 3)  # x.shape (b, num_attention_heads,w/patch_size*h/patch_size+1,attention_head_size)
+        return x.permute(0, 2, 1, 3)  # x.shape (b, num_attention_heads,N+1,attention_head_size)
 
     def forward(self, hidden_states):
         mixed_query_layer = self.query(hidden_states)  # Linear(in_features=768, out_features=768, bias=True)
@@ -150,9 +150,9 @@ class Embeddings(nn.Module):
         if self.hybrid:
             x = self.hybrid_model(x)
         x = self.patch_embeddings(x)  # x.shape (b, hidden_size, w/patch_size, h/patch_size)
-        x = x.flatten(2)  # x.shape (b, hidden_size, w/patch_size*h/patch_size)
-        x = x.transpose(-1, -2)  # x.shape (b, w/patch_size*h/patch_size, hidden_size)
-        x = torch.cat((cls_tokens, x), dim=1)  # x.shape (b, w/patch_size*h/patch_size+1, hidden_size)
+        x = x.flatten(2)  # x.shape (b, hidden_size, w/patch_size*h/patch_size) 下面用N表示w/patch_size*h/patch_size
+        x = x.transpose(-1, -2)  # x.shape (b, N, hidden_size)
+        x = torch.cat((cls_tokens, x), dim=1)  # x.shape (b, N+1, hidden_size)
 
         embeddings = x + self.position_embeddings  # 加上位置信息
         embeddings = self.dropout(embeddings)
